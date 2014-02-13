@@ -1,0 +1,24 @@
+sdp.py is a python script intended to study the nodal structure of
+quintic spectrahedra.  Spectrahedra are the feasible set of
+semidefinite programs, a broad category to which many types of convex
+optimization problems can be reduced.  Because optimal values are
+often nodes, understanding their properties can provide useful
+information on the likely results of these optimization problems.
+
+The main script, sdp.py, is intended to generate random spectrahedra,
+compute the positions of nodes, and run a large number of optimization
+problems with random linear objectives, correlating the results with
+the locations of nodes.  Other included python scripts are various
+ways of driving this code and processing the results.
+
+While the goal is to write the code in a manner compatible with
+Python3, it is currently only compatible with Python2.7, due to the
+requirements of cvxpy.
+
+Requirements:
+
+* Singular: http://www.singular.uni-kl.de/
+* Macaulay2: http://www.math.uiuc.edu/Macaulay2/
+* Bertini: https://bertini.nd.edu/
+* cvxpy: https://github.com/cvxgrp/cvxpy/
+* numpy and scipy: http://scipy.org/

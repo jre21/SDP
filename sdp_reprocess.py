@@ -5,7 +5,9 @@ import multiprocessing
 from sdp import *
 
 
-parser = argparse.ArgumentParser(description='Run sdps in parallel.')
+parser = argparse.ArgumentParser(
+    description='Reprocess sdps which have already been run.'
+)
 parser.add_argument('directory', type=str,
                     help='output directory')
 parser.add_argument('infiles', metavar='file', nargs='+',
