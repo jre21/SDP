@@ -4,3 +4,6 @@
 *.fls
 *.fdb_latexmk
 *.pdf
+*.bbl
+*.blg
+*.out
