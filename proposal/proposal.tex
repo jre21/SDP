@@ -53,12 +53,17 @@ select a node.
 
 To carry this out, we will generate random spectrahedra and compute
 the positions of nodes, while also running multiple optimization
-problems on each.  Much of the code for this is already
-written.  Currently, singular is used to determine locations of nodes
-through a Gr\"obner basis algorithm; due to apparent numeric
-instabilities, however, this misidentifies nodes in certain edge
-cases.  We hope to replace this with the homotopy algorithms
-implemented in bertini, which produce more reliable results.
+problems on each.  Jacob Emmert-Aronson and Joe Kileel wrote much of
+the code to carry this out last semester.  Currently, Singular is used
+to determine locations of nodes through a Gr\"obner basis algorithm;
+due to apparent numeric instabilities, however, this misidentifies
+nodes in certain edge cases.  We hope to replace this with the
+homotopy algorithms implemented in Bertini, which produce more
+reliable results.  We will then check the most interesting edge cases
+from the previous data set, to determine whether unusual behavior
+persists under the more accurate analysis, and generate a new data set
+to determine possible node counts with relative frequencies, and other
+properties which may be of interest.
 
 We also plan to learn what has been done in the case of quartic spectrahedra,
 and see if any of that theory generalizes to the quintic case.
