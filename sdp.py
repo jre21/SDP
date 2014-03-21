@@ -148,33 +148,31 @@ class SDP:
             y = cvx.Variable(name='y')
             z = cvx.Variable(name='z')
             # dummy variable to code semidefinite constraint
-            T = cvx.SDPVar(5,name='T')
+            T = cvx.semidefinite(5,name='T')
             spec = self.A * x + self.B * y + self.C * z + self.D
             obj = cvx.Minimize(c[0,0]*x + c[1,0]*y + c[2,0]*z)
 
             # check psd component
             if self.psd_spec:
-                psd_status = cvx.get_status(
-                    cvx.Problem(obj, [T == spec]).solve(verbose=verbose)
-                )
-                if psd_status == cvx.SOLVED:
+                psd = cvx.Problem(obj, [T == spec])
+                psd.solve(verbose=verbose)
+                if psd.status == cvx.OPTIMAL:
                     self.mins.append([x.value, y.value, z.value])
-                elif psd_status == cvx.INFEASIBLE:
+                elif psd.status == cvx.INFEASIBLE:
                     self.psd_spec = False
 
             # check NSD component
             if self.nsd_spec:
-                nsd_status = cvx.get_status(
-                    cvx.Problem(obj, [T == -spec]).solve(verbose=verbose)
-                )
-                if nsd_status == cvx.SOLVED:
+                nsd = cvx.Problem(obj, [T == -spec])
+                nsd.solve(verbose=verbose)
+                if nsd.status == cvx.OPTIMAL:
                     self.mins.append([x.value, y.value, z.value])
-                    if psd_status == cvx.SOLVED:
+                    if psd.status == cvx.OPTIMAL:
                         self.fully_bounded_directions += 1
-                elif nsd_status == cvx.UNBOUNDED \
-                     and psd_status == cvx.UNBOUNDED:
+                elif nsd.status == cvx.UNBOUNDED \
+                     and psd.status == cvx.UNBOUNDED:
                     self.fully_unbounded_directions += 1
-                elif nsd_status == cvx.INFEASIBLE:
+                elif nsd.status == cvx.INFEASIBLE:
                     self.nsd_spec = False
 
         self.trials += n
