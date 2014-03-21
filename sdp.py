@@ -1,10 +1,13 @@
 from __future__ import division, print_function
+
+import random
+import subprocess
+import tempfile
+
 import cvxpy as cvx
 import numpy
 import scipy.linalg as linalg
-import random
-import subprocess
-import os
+
 from opt_utils import rand_matrix
 
 
@@ -19,6 +22,9 @@ class SDP:
         Each element of pmins takes the form (min, occurances)
 
         """
+        # ensure tmpdir exists
+
+
         self.mins = []
         self.pmins = []
         self.nodes = []
@@ -85,11 +91,10 @@ class SDP:
     #
     def get_nodes_from_singular(self):
         """Determine location of nodes with singular."""
-        tmpfile = self.tmpdir + '/' + str(random.randrange(2 ** 32))
-        with open(tmpfile,'w') as f:
+        with tempfile.NamedTemporaryFile() as f:
             self.print_singular_script(file=f)
-        output = subprocess.check_output(['singular',tmpfile])
-        os.remove(tmpfile)
+            f.flush()
+            output = subprocess.check_output(['singular',f.name])
         return self.parse_singular_output(output)
 
 
