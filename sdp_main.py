@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 from sdp import *
 
 # run optimizations on a single spectrahedron, for testing purposes
