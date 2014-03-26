@@ -1,12 +1,15 @@
 from __future__ import division, print_function
 
+import contextlib
 import random
+import shutil
 import subprocess
 import tempfile
 
 import cvxpy as cvx
 import numpy
 import scipy.linalg as linalg
+import sympy
 
 from opt_utils import rand_matrix
 
@@ -123,6 +126,54 @@ class SDP:
                 continue
             vectors.append([float(split[i+j]) for j in range(2,8,2)])
         return vectors
+
+
+    #
+    # functions for bertini handler
+    #
+    def get_nodes_from_bertini(self):
+        """Determine location of nodes with bertini."""
+        @contextlib.contextmanager
+        def temp_directory():
+            tmpdir = tempfile.mkdtemp()
+            yield tmpdir
+            shutil.rmtree(tmpdir)
+
+        with temp_directory() as tmpdir:
+            self.print_bertini_script(tmpdir)
+            cwd = os.getcwd()
+            os.chdir(tmpdir)
+            subprocess.call([bertini])
+            os.chdir(cwd)
+            retval = self.parse_bertini_output(tmpdir)
+        return retval
+
+
+    def print_bertini_script(self, directory, template="data/bertini_input"):
+        """Create a bertini script suitable for execution from template."""
+        x, y, z = sympy.symbols('x y z')
+        det = sympy.det(
+            x * sympy.Matrix(self.A) + y * sympy.Matrix(self.B)
+            + z * sympy.Matrix(self.C) + sympy.Matrix(self.D)
+        )
+        difx = sympy.diff(det,x)
+        dify = sympy.diff(det,y)
+        difz = sympy.diff(det,z)
+
+        with open(template) as inp:
+            with open(directory + '/input', mode='w') as out:
+                for line in inp.readlines():
+                    print(line.format(
+                        F=str(det).replace('**','^'),
+                        G=str(difx).replace('**','^'),
+                        H=str(dify).replace('**','^'), 
+                        I=str(difz).replace('**','^')
+                    ), file=out, end='')
+
+
+    def parse_bertini_output(directory):
+        """Parse output from a bertini run."""
+        raise NotImplementedError
 
 
     #

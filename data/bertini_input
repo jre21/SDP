@@ -1,0 +1,16 @@
+
+CONFIG
+
+END;
+
+INPUT
+
+variable_group x, y, z;
+function f, g, h, i;
+
+f = {F};
+g = {G};
+h = {H};
+i = {I};
+
+END;

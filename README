@@ -11,14 +11,14 @@ problems with random linear objectives, correlating the results with
 the locations of nodes.  Other included python scripts are various
 ways of driving this code and processing the results.
 
-While the goal is to write the code in a manner compatible with
-Python3, it is currently only compatible with Python2.7, due to the
-requirements of cvxpy.
+While the goal is to write the code in a manner compatible with Python
+3, the requirements of cvxpy currently place a hard dependency on
+Python 2.7.
 
 Requirements:
 
 * Singular: http://www.singular.uni-kl.de/
-* Macaulay2: http://www.math.uiuc.edu/Macaulay2/
 * Bertini: https://bertini.nd.edu/
 * cvxpy: https://github.com/cvxgrp/cvxpy/
 * numpy and scipy: http://scipy.org/
+* sympy: http://sympy.org/
