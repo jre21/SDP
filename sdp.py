@@ -1,6 +1,7 @@
 from __future__ import division, print_function
 
 import contextlib
+import os
 import random
 import shutil
 import subprocess
@@ -19,26 +20,34 @@ class SDP:
     def __init__(self, A=None, B=None, C=None, D=None):
         """Generate internal variables.
 
-        The spectrahedron is the surface det(xA + yB + zC + D) = 0.
-        mins holds the minimizing points of randomly-generated SDPs.
-        pmins is an array indicating points with multiplicities.
-        Each element of pmins takes the form (min, occurances)
+        The spectrahedron is the surface det(xA + yB + zC + D) = 0
+        All points are represented as lists of floats
+        A, B, C, D: represented as numpy ndarrays
+        matrices: [A, B, C, D], collected for convenience
+        mins: list of minimizing points of randomly-generated SDPs
+        pmins: list indicating points with multiplicities
+            Each element of pmins takes the form
+            [location, occurances, eigenvalues]
+        nodes: list of spectrahedral nodes, in the form
+            [location, frequency, eigenvalues].  Nodes are sorted in
+            descending order by frequency.
+        spec_nodes: nodes on surface of spectrahedron
+        sym_nodes: other real nodes on symmetroid
+            both represented as [location, eigenvalues]
+        trials: number of calls to cvx
+        psd_spec: whether spectrahedron contains psd component
+        nsd_spec: ditto for nsd
+        fully_bounded_directions (fully_unbounded_directions):
+            number of directions in which optimizations on both
+            spectrahedra are bounded (unbounded)
 
         """
-        # ensure tmpdir exists
-
-
         self.mins = []
         self.pmins = []
         self.nodes = []
-        # location, eigenvalue pairs
         self.spec_nodes = []
         self.sym_nodes = []
-        # number of cvx calls
         self.trials = 0
-        # track whether the spectrahedron contains an NSD component,
-        # and whether how many optimization directions are
-        # simultaneously unbounded for both (or neither) components
         self.psd_spec = True
         self.nsd_spec = True
         self.fully_bounded_directions = 0
@@ -64,7 +73,6 @@ class SDP:
         else:
             self.D = D
 
-        # list of matrices for convenience
         self.matrices = [self.A, self.B, self.C, self.D]
 
 
@@ -72,7 +80,7 @@ class SDP:
     # Utility functions
     #
     def matrix(self, vector):
-        """Return (xA+yB+zC+D) at a point."""
+        """Return (xA+yB+zC+D) at the point designated by vector."""
         vec = vector[:]
         vec.append(1)
         return sum([vec[i] * self.matrices[i]
@@ -93,7 +101,11 @@ class SDP:
     # functions for singular handler
     #
     def get_nodes_from_singular(self):
-        """Determine location of nodes with singular."""
+        """Determine location of nodes with singular.
+
+        Returns list of real nodes.
+
+        """
         with tempfile.NamedTemporaryFile() as f:
             self.print_singular_script(file=f)
             f.flush()
@@ -102,12 +114,22 @@ class SDP:
 
 
     def matrix_to_singular(self, matrix):
-        """Format a matrix for input into singular."""
+        """Format a matrix for input into singular.
+
+        matrix: matrix to format
+
+        Returns string usable in singular script."""
         return str([i for i in matrix.flat])[1:-1]
 
 
     def print_singular_script(self, template="data/singular_script",
                               file=None):
+        """Create a singular script suitable for execution from template.
+
+        template: template file from which to generate script
+        file: where to write out script
+
+        """
         with open(template) as f:
             for line in f.readlines():
                 print(line.format(A=self.matrix_to_singular(self.A),
@@ -118,7 +140,11 @@ class SDP:
 
 
     def parse_singular_output(self, string):
-        """Parse the output from singular and return list of nodes."""
+        """Parse the output from singular and return list of nodes.
+
+        string: raw output from singular call
+
+        Returns list of real nodes."""
         split = string[string.find('[1]'):].splitlines()
         vectors = []
         for i in range(0,140,7):
@@ -132,7 +158,11 @@ class SDP:
     # functions for bertini handler
     #
     def get_nodes_from_bertini(self):
-        """Determine location of nodes with bertini."""
+        """Determine location of nodes with bertini.
+
+        Returns list of real nodes.
+
+        """
         @contextlib.contextmanager
         def temp_directory():
             tmpdir = tempfile.mkdtemp()
@@ -143,14 +173,19 @@ class SDP:
             self.print_bertini_script(tmpdir)
             cwd = os.getcwd()
             os.chdir(tmpdir)
-            subprocess.call([bertini])
+            subprocess.call(['bertini'])
             os.chdir(cwd)
             retval = self.parse_bertini_output(tmpdir)
         return retval
 
 
     def print_bertini_script(self, directory, template="data/bertini_input"):
-        """Create a bertini script suitable for execution from template."""
+        """Create a bertini script suitable for execution from template.
+
+        directory: working directory for bertini
+        template: template file from which to generate script
+
+        """
         x, y, z = sympy.symbols('x y z')
         det = sympy.det(
             x * sympy.Matrix(self.A) + y * sympy.Matrix(self.B)
@@ -171,16 +206,64 @@ class SDP:
                     ), file=out, end='')
 
 
-    def parse_bertini_output(directory):
-        """Parse output from a bertini run."""
-        raise NotImplementedError
+    def parse_bertini_output(self, directory):
+        """Parse output from bertini and return list of nodes.
+
+        directory: working directory for bertini
+
+        Returns list of real nodes.
+
+        """
+        with open(directory + '/finite_solutions') as f:
+            lines = f.readlines()
+
+        # The file finite_solutions contains the number of solutions,
+        # followed by a blank line, followed by the solutions.  The
+        # value of each variable is listed on its own line in the form
+        # 're im', and solutions are separated by blank lines.
+        # Graphically this is:
+        #
+        ## n_solutions
+        ##
+        ## x1.re x1.im
+        ## y1.re y1.im
+        ## z1.re z1.im
+        ##
+        ## x2, etc ...
+
+        # trim trailing newlines
+        while lines[-1] == '\n':
+            lines = lines[:-1]
+
+        # list of vectors of complex numbers represented as [re, im]
+        complex_vecs = []
+        for line in lines:
+            if line == '\n':
+                complex_vecs.append([])
+                continue
+            line = line[:-1].split()
+            if len(line) > 1:
+                complex_vecs[-1].append([float(x) for x in line])
+
+        # list of those vectors which are purely real
+        vecs = []
+        for vec in complex_vecs:
+            re, im = list(zip(*vec))
+            if sum([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
+                vecs.append(list(re))
+
+        return vecs
 
 
     #
     # main components
     #
     def print_params(self, file=None):
-        """print the matrix parameters to a file or stdout"""
+        """Print the matrix parameters.
+
+        file: file to print to (default: stdout)
+
+        """
         print('A:', file=file)
         print(self.A, file=file)
         print([a for a in self.A.flat], file=file)
@@ -197,7 +280,16 @@ class SDP:
 
 
     def solve(self, n=1, verbose=False):
-        """Solve n optimization problems, and return argmin array."""
+        """Solve optimization problems.
+
+        n: number of optimizations
+        verbose: whether cvx should print verbose output to stdout
+
+        Appends results to mins, adds number of optimizations
+        performed to trials, and sets psd_spec, nsd_spec, and
+        fully_(un)bounded_directions.
+
+        """
         for i in range(n):
             c = rand_matrix(3,1)
             x = cvx.Variable(name='x')
@@ -235,13 +327,15 @@ class SDP:
 
 
     def get_nodes(self, handler=None):
-        """Determine location of nodes, and classify them.
+        """Determine location of real nodes, and classify them.
 
-        handler() must output nodes as a list of points.
+        handler() must output real nodes as a list of points.
+
+        Sets spec_nodes and sym_nodes.
 
         """
         if handler is None:
-            handler = self.get_nodes_from_singular
+            handler = self.get_nodes_from_bertini
         for vector in handler():
             e = self.eigenvalues(vector)
             if (e[0] >= 0 and e[1] >= 0 and e[2] >= 0) \
@@ -256,6 +350,9 @@ class SDP:
 
         Points x and y are considered identical if
         norm(x-y)/norm(x) < tolerance, using the L2 norm.
+
+        Calls get_nodes if necessary, sets self.pmins, and clears
+        self.mins.
 
         """
         if not self.spec_nodes and not self.sym_nodes:
@@ -296,6 +393,7 @@ class SDP:
          
 
     def print_results(self, file=None):
+        """Print results of optimization to file (default: stdout)."""
         if self.nodes == []:
             self.gen_nodes()
         print("spectrahedral nodes: {0}".format(len(self.pmins)), file=file)
