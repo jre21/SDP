@@ -157,8 +157,11 @@ class SDP:
     #
     # functions for bertini handler
     #
-    def get_nodes_from_bertini(self):
+    def get_nodes_from_bertini(self, verbose=False):
         """Determine location of nodes with bertini.
+
+        verbose: set to True to print Bertini output to stdout
+                 default is false (suppress Bertini output)
 
         Returns list of real nodes.
 
@@ -173,7 +176,11 @@ class SDP:
             self.print_bertini_script(tmpdir)
             cwd = os.getcwd()
             os.chdir(tmpdir)
-            subprocess.call(['bertini'])
+            if verbose:
+                subprocess.call(['bertini'])
+            else:
+                with open(os.devnull) as null:
+                    subprocess.call(['bertini'], stdout=null, stderr=null)
             os.chdir(cwd)
             retval = self.parse_bertini_output(tmpdir)
         return retval
