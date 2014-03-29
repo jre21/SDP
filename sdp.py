@@ -29,8 +29,8 @@ class SDP:
             Each element of pmins takes the form
             [location, occurances, eigenvalues]
         nodes: list of spectrahedral nodes, in the form
-            [location, frequency, eigenvalues].  Nodes are sorted in
-            descending order by frequency.
+            [location, fractional occurances, eigenvalues].
+            Nodes are sorted in descending order by frequency.
         spec_nodes: nodes on surface of spectrahedron
         sym_nodes: other real nodes on symmetroid
             both represented as [location, eigenvalues]
@@ -118,7 +118,12 @@ class SDP:
 
         matrix: matrix to format
 
-        Returns string usable in singular script."""
+        Returns string usable in singular script.
+
+        """
+        # Singular expects matrices in a flattened form without any
+        # decoration.  E.g., a 2x2 matrix would be initialized by
+        ## matrix m[2][2] = m11, m12, m21, m22;
         return str([i for i in matrix.flat])[1:-1]
 
 
@@ -144,7 +149,21 @@ class SDP:
 
         string: raw output from singular call
 
-        Returns list of real nodes."""
+        Returns list of real nodes.
+
+        """
+        # Singular uses a tree-like structure for its output, displaying
+        # solution n as
+        ## [n]:
+        ##    [1]:
+        ##       var1
+        ##    [2]:
+        ##       var2
+        ##    [3]:
+        ##       var3
+        # where vari is the value of the i'th variable.  Complex numbers
+        # are represented in the format
+        ## (re+i*im)
         split = string[string.find('[1]'):].splitlines()
         vectors = []
         for i in range(0,140,7):
@@ -363,10 +382,11 @@ class SDP:
 
         """
         if not self.spec_nodes and not self.sym_nodes:
-            output = self.get_nodes()
-            self.pmins = [[node[0], 0, node[1]]
-                          for node in self.spec_nodes]
-        if self.pmins:
+            self.get_nodes()
+        if self.spec_nodes:
+            if not self.pmins:
+                self.pmins = [[node[0], 0, node[1]]
+                              for node in self.spec_nodes]
             maxdelta = tolerance * max([linalg.norm(y[0]) for y in self.pmins])
             for y in self.pmins:
                 yy = numpy.array(y[0])
@@ -381,12 +401,16 @@ class SDP:
     def gen_nodes(self, threshold=3, eival_tol=1e-4):
         """Fetch all nodes with percent of minima occuring at each.
 
+        Calls process if necessary, and sets self.nodes.
+
         threshold: minimum number of points to be considered a node.
         If |x-y|/|x| < rel_threshold, discard whichever of x and y has
         fewer points.
 
         """
         if self.mins != [] or not self.sym_nodes:
+            self.process()
+        elif self.spec_nodes and not self.nodes:
             self.process()
 
         self.nodes = []
@@ -407,6 +431,19 @@ class SDP:
         print("symmetroid nodes: {0}".format(
             len(self.sym_nodes) + len(self.pmins)
         ), file=file)
+
+        # Flag this file if any computed node is not a double root
+        # of the determinant polynomial.
+        invalid_node = False
+        for node in self.spec_nodes:
+            if node[1][3]/node[1][2] > 1e-5:
+                invalid_node = True
+        for node in self.sym_nodes:
+            if node[1][3]/node[1][2] > 1e-5:
+                invalid_node = True
+        if invalid_node:
+            print("invalid node detected", file=file)
+
         print("", file=file)
 
         if self.trials is not 0:
