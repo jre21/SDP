@@ -34,6 +34,7 @@ class SDP:
         spec_nodes: nodes on surface of spectrahedron
         sym_nodes: other real nodes on symmetroid
             both represented as [location, eigenvalues]
+        total_nodes: total number of nodes (including complex)
         trials: number of calls to cvx
         psd_spec: whether spectrahedron contains psd component
         nsd_spec: ditto for nsd
@@ -47,6 +48,7 @@ class SDP:
         self.nodes = []
         self.spec_nodes = []
         self.sym_nodes = []
+        self.total_nodes = 0
         self.trials = 0
         self.psd_spec = True
         self.nsd_spec = True
@@ -237,7 +239,7 @@ class SDP:
 
         directory: working directory for bertini
 
-        Returns list of real nodes.
+        Returns list of real nodes and sets total_nodes.
 
         """
         with open(directory + '/finite_solutions') as f:
@@ -270,6 +272,8 @@ class SDP:
             line = line[:-1].split()
             if len(line) > 1:
                 complex_vecs[-1].append([float(x) for x in line])
+            else:
+                self.total_nodes = int(line[0])
 
         # list of those vectors which are purely real
         vecs = []
@@ -431,6 +435,7 @@ class SDP:
         print("symmetroid nodes: {0}".format(
             len(self.sym_nodes) + len(self.pmins)
         ), file=file)
+        print("total nodes: {0}".format(self.total_nodes), file=file)
 
         # Flag this file if any computed node is not a double root
         # of the determinant polynomial.
