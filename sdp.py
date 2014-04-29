@@ -282,7 +282,8 @@ class SDP:
         vecs = []
         for vec in complex_vecs:
             re, im = list(zip(*vec))
-            if sum([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
+            # use max() to compactly express a disjunction
+            if max([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
                 vecs.append(list(re))
             else:
                 vecs.append([complex(v[0],v[1]) for v in vec])
@@ -373,9 +374,10 @@ class SDP:
             handler = self.get_nodes_from_bertini
         for vector in handler():
             e = self.eigenvalues(vector)
-            if e.conjugate() == e:
-                if (e[0] >= 0 and e[1] >= 0 and e[2] >= 0) \
-                   or (e[0] <= 0 and e[1] <= 0 and e[2] <= 0):
+            # use min to compactly express a conjunction
+            if min([v.conjugate() == v for v in vector]):
+                if min([v >= 0 for v in e[:-2]]) \
+                   or min([v <= 0 for v in e[:-2]]):
                     self.spec_nodes.append([vector,e])
                 else:
                     self.sym_nodes.append([vector,e])
