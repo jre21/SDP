@@ -15,6 +15,8 @@ parser.add_argument('infiles', metavar='file', nargs='+',
                     help='files to reprocess')
 parser.add_argument('-o', '--objectives', default=10000, type=int,
                     help='number of objectives to evaluate')
+parser.add_argument('--serialize', action='store_true',
+                    help='disable parallelism for debug purposes')
 args = parser.parse_args()
 
 os.makedirs(args.directory)
@@ -29,7 +31,8 @@ def run_sdp(files):
     A = numpy.array(eval(lines[6])).reshape(5,5)
     B = numpy.array(eval(lines[13])).reshape(5,5)
     C = numpy.array(eval(lines[20])).reshape(5,5)
-    sdp = SDP(A,B,C)
+    D = numpy.array(eval(lines[27])).reshape(5,5)
+    sdp = SDP(A,B,C,D)
 
     with open(outfile, 'w') as f:
         sdp.print_params(file=f)
@@ -38,5 +41,9 @@ def run_sdp(files):
 
 outfiles = ['{0}/{1}.txt'.format(args.directory, i)
             for i in range(len(args.infiles))]
-pool = multiprocessing.Pool(maxtasksperchild=10)
-pool.map(run_sdp, zip(args.infiles, outfiles))
+if args.serialize:
+    for files in zip(args.infiles, outfiles):
+        run_sdp(files)
+else:
+    pool = multiprocessing.Pool(maxtasksperchild=10)
+    pool.map(run_sdp, zip(args.infiles, outfiles))
