@@ -33,7 +33,8 @@ class SDP:
             Nodes are sorted in descending order by frequency.
         spec_nodes: nodes on surface of spectrahedron
         sym_nodes: other real nodes on symmetroid
-            both represented as [location, eigenvalues]
+        complex_nodes: nodes with nonzero imaginary parts
+            all nodes represented as [location, eigenvalues]
         total_nodes: total number of nodes (including complex)
         trials: number of calls to cvx
         psd_spec: whether spectrahedron contains psd component
@@ -48,6 +49,7 @@ class SDP:
         self.nodes = []
         self.spec_nodes = []
         self.sym_nodes = []
+        self.complex_nodes = []
         self.total_nodes = 0
         self.trials = 0
         self.psd_spec = True
@@ -151,7 +153,7 @@ class SDP:
 
         string: raw output from singular call
 
-        Returns list of real nodes.
+        Returns list of real nodes and sets total_nodes.
 
         """
         # Singular uses a tree-like structure for its output, displaying
@@ -168,7 +170,8 @@ class SDP:
         ## (re+i*im)
         split = string[string.find('[1]'):].splitlines()
         vectors = []
-        for i in range(0,140,7):
+        for i in range(0,len(split),7):
+            self.total_nodes += 1
             if '(' in split[i+2] or '(' in split[i+4] or '(' in split[i+6]:
                 continue
             vectors.append([float(split[i+j]) for j in range(2,8,2)])
@@ -184,7 +187,7 @@ class SDP:
         verbose: set to True to print Bertini output to stdout
                  default is false (suppress Bertini output)
 
-        Returns list of real nodes.
+        Returns list of all nodes.
 
         """
         @contextlib.contextmanager
@@ -239,7 +242,7 @@ class SDP:
 
         directory: working directory for bertini
 
-        Returns list of real nodes and sets total_nodes.
+        Returns list of all nodes and sets total_nodes.
 
         """
         with open(directory + '/finite_solutions') as f:
@@ -275,12 +278,14 @@ class SDP:
             else:
                 self.total_nodes = int(line[0])
 
-        # list of those vectors which are purely real
+        # detect real vectors, and convert complex ones to native format
         vecs = []
         for vec in complex_vecs:
             re, im = list(zip(*vec))
             if sum([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
                 vecs.append(list(re))
+            else:
+                vecs.append([complex(v[0],v[1]) for v in vec])
 
         return vecs
 
@@ -359,33 +364,42 @@ class SDP:
     def get_nodes(self, handler=None):
         """Determine location of real nodes, and classify them.
 
-        handler() must output real nodes as a list of points.
+        handler() must output nodes as lists of points.
 
-        Sets spec_nodes and sym_nodes.
+        Sets spec_nodes, sym_nodes, and complex_nodes.
 
         """
         if handler is None:
             handler = self.get_nodes_from_bertini
         for vector in handler():
             e = self.eigenvalues(vector)
-            if (e[0] >= 0 and e[1] >= 0 and e[2] >= 0) \
-               or (e[0] <= 0 and e[1] <= 0 and e[2] <= 0):
-                self.spec_nodes.append([vector,e])
+            if e.conjugate() == e:
+                if (e[0] >= 0 and e[1] >= 0 and e[2] >= 0) \
+                   or (e[0] <= 0 and e[1] <= 0 and e[2] <= 0):
+                    self.spec_nodes.append([vector,e])
+                else:
+                    self.sym_nodes.append([vector,e])
             else:
-                self.sym_nodes.append([vector,e])
+                self.complex_nodes.append([vector,e])
+
+        # define a canonical ordering on nodes for ease of comparison
+        self.spec_nodes.sort(key = lambda x: x[0][0])
+        self.sym_nodes.sort(key = lambda x: x[0][0])
+        self.complex_nodes.sort(key = lambda x: x[0][0].real)
 
 
     def process(self, tolerance=1e-3):
         """Process minima to determine number of occurances.
 
         Points x and y are considered identical if
-        norm(x-y)/norm(x) < tolerance, using the L2 norm.
+        norm(x-y)/max(norm(z)) is less than tolerance, where the
+        maximum is over locations of spectrahedral nodes.
 
         Calls get_nodes if necessary, sets self.pmins, and clears
         self.mins.
 
         """
-        if not self.spec_nodes and not self.sym_nodes:
+        if not self.total_nodes:
             self.get_nodes()
         if self.spec_nodes:
             if not self.pmins:
@@ -402,7 +416,7 @@ class SDP:
         self.mins = []
 
 
-    def gen_nodes(self, threshold=3, eival_tol=1e-4):
+    def gen_nodes(self):
         """Fetch all nodes with percent of minima occuring at each.
 
         Calls process if necessary, and sets self.nodes.
@@ -412,9 +426,7 @@ class SDP:
         fewer points.
 
         """
-        if self.mins != [] or not self.sym_nodes:
-            self.process()
-        elif self.spec_nodes and not self.nodes:
+        if self.mins != [] or not self.total_nodes:
             self.process()
 
         self.nodes = []
@@ -476,4 +488,10 @@ class SDP:
             print("location: {0}".format(self.sym_nodes[i][0]), file=file)
             print("eigenvalues:", file=file)
             print(self.sym_nodes[i][1], file=file)
+            print("", file=file)
+        for i in range(len(self.complex_nodes)):
+            print("complex node {0}:".format(i+1), file=file)
+            print("location: {0}".format(self.complex_nodes[i][0]), file=file)
+            print("eigenvalues:", file=file)
+            print(self.complex_nodes[i][1], file=file)
             print("", file=file)
