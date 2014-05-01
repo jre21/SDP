@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import tempfile
 
-import cvxpy as cvx
 import numpy
 import scipy.linalg as linalg
 import sympy
@@ -16,7 +15,11 @@ from opt_utils import rand_matrix
 
 
 class SDP:
-    tmpdir = "tmp"
+    """Class to generate and test SDP problems.  Normally, only methods
+    under 'main components' heading should be called from external
+    code.
+
+    """
     def __init__(self, A=None, B=None, C=None, D=None):
         """Generate internal variables.
 
@@ -99,6 +102,54 @@ class SDP:
             if svd[0][i,i] * svd[2][i,i] < 0:
                 eivals[i] *= -1
         return eivals
+
+
+    def cvx_solve(self, obj, verbose=False):
+        """Solve an objective function with cvx.
+
+        obj: vector representing the linear objective to be minimized
+
+        Returns a pair representing the optimum of the psd and nsd
+        components (None if that component is either infeasible or
+        unbounded along the optimization direction).  Also sets
+        psd_spec, nsd_spec, and fully_(un)bounded_directions.
+
+        """
+        import cvxpy as cvx
+
+        x = cvx.Variable(name='x')
+        y = cvx.Variable(name='y')
+        z = cvx.Variable(name='z')
+        # dummy variable to code semidefinite constraint
+        T = cvx.semidefinite(5,name='T')
+        spec = self.A * x + self.B * y + self.C * z + self.D
+        objective = cvx.Minimize(obj[0,0]*x + obj[1,0]*y + obj[2,0]*z)
+        out_psd = out_nsd = None
+
+        # check psd component
+        if self.psd_spec:
+            psd = cvx.Problem(objective, [T == spec])
+            psd.solve(verbose=verbose)
+            if psd.status == cvx.OPTIMAL:
+                out_psd = [x.value, y.value, z.value]
+            elif psd.status == cvx.INFEASIBLE:
+                self.psd_spec = False
+
+        # check NSD component
+        if self.nsd_spec:
+            nsd = cvx.Problem(objective, [T == -spec])
+            nsd.solve(verbose=verbose)
+            if nsd.status == cvx.OPTIMAL:
+                out_nsd = [x.value, y.value, z.value]
+                if psd.status == cvx.OPTIMAL:
+                    self.fully_bounded_directions += 1
+            elif nsd.status == cvx.UNBOUNDED \
+               and psd.status == cvx.UNBOUNDED:
+                self.fully_unbounded_directions += 1
+            elif nsd.status == cvx.INFEASIBLE:
+                self.nsd_spec = False
+
+        return out_psd, out_nsd
 
 
     #
@@ -321,43 +372,17 @@ class SDP:
         n: number of optimizations
         verbose: whether cvx should print verbose output to stdout
 
-        Appends results to mins, adds number of optimizations
-        performed to trials, and sets psd_spec, nsd_spec, and
-        fully_(un)bounded_directions.
+        Appends results to mins, plus additional side effects
+        described in cvx_solve().
 
         """
         for i in range(n):
             c = rand_matrix(3,1)
-            x = cvx.Variable(name='x')
-            y = cvx.Variable(name='y')
-            z = cvx.Variable(name='z')
-            # dummy variable to code semidefinite constraint
-            T = cvx.semidefinite(5,name='T')
-            spec = self.A * x + self.B * y + self.C * z + self.D
-            obj = cvx.Minimize(c[0,0]*x + c[1,0]*y + c[2,0]*z)
-
-            # check psd component
-            if self.psd_spec:
-                psd = cvx.Problem(obj, [T == spec])
-                psd.solve(verbose=verbose)
-                if psd.status == cvx.OPTIMAL:
-                    self.mins.append([x.value, y.value, z.value])
-                elif psd.status == cvx.INFEASIBLE:
-                    self.psd_spec = False
-
-            # check NSD component
-            if self.nsd_spec:
-                nsd = cvx.Problem(obj, [T == -spec])
-                nsd.solve(verbose=verbose)
-                if nsd.status == cvx.OPTIMAL:
-                    self.mins.append([x.value, y.value, z.value])
-                    if psd.status == cvx.OPTIMAL:
-                        self.fully_bounded_directions += 1
-                elif nsd.status == cvx.UNBOUNDED \
-                     and psd.status == cvx.UNBOUNDED:
-                    self.fully_unbounded_directions += 1
-                elif nsd.status == cvx.INFEASIBLE:
-                    self.nsd_spec = False
+            psd, nsd = self.cvx_solve(c, verbose)
+            if psd is not None:
+                self.mins.append(psd)
+            if nsd is not None:
+                self.mins.append(nsd)
 
         self.trials += n
 
