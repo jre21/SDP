@@ -140,7 +140,7 @@ class SDP:
         objective = cvx.Minimize(obj[0]*x + obj[1]*y + obj[2]*z)
         out_psd = out_nsd = None
 
-        # check psd component
+        # check PSD component
         if self.psd_spec:
             psd = cvx.Problem(objective, [T == spec])
             psd.solve(verbose=verbose)
@@ -155,10 +155,10 @@ class SDP:
             nsd.solve(verbose=verbose)
             if nsd.status == cvx.OPTIMAL:
                 out_nsd = [x.value, y.value, z.value]
-                if psd.status == cvx.OPTIMAL:
+                if self.psd_spec and psd.status == cvx.OPTIMAL:
                     self.fully_bounded_directions += 1
             elif nsd.status == cvx.UNBOUNDED \
-               and psd.status == cvx.UNBOUNDED:
+               and self.psd_spec and psd.status == cvx.UNBOUNDED:
                 self.fully_unbounded_directions += 1
             elif nsd.status == cvx.INFEASIBLE:
                 self.nsd_spec = False
