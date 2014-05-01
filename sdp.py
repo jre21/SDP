@@ -83,6 +83,19 @@ class SDP:
         self.matrices = [self.A, self.B, self.C, self.D]
 
 
+    @classmethod
+    def from_file(cls, filename):
+        """Initialize an instance from an output file."""
+        with open(filename) as f:
+            lines = f.readlines()
+
+        A = numpy.array(eval(lines[6])).reshape(5,5)
+        B = numpy.array(eval(lines[13])).reshape(5,5)
+        C = numpy.array(eval(lines[20])).reshape(5,5)
+        D = numpy.array(eval(lines[27])).reshape(5,5)
+        return cls(A,B,C,D)
+
+
     #
     # Utility functions
     #

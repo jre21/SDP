@@ -24,15 +24,7 @@ os.makedirs(args.directory)
 def run_sdp(files):
     infile = files[0]
     outfile = files[1]
-
-    with open(infile) as f:
-        lines = f.readlines()
-
-    A = numpy.array(eval(lines[6])).reshape(5,5)
-    B = numpy.array(eval(lines[13])).reshape(5,5)
-    C = numpy.array(eval(lines[20])).reshape(5,5)
-    D = numpy.array(eval(lines[27])).reshape(5,5)
-    sdp = SDP(A,B,C,D)
+    sdp = SDP.from_file(infile)
 
     with open(outfile, 'w') as f:
         sdp.print_params(file=f)
