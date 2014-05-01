@@ -108,6 +108,7 @@ class SDP:
         """Solve an objective function with cvx.
 
         obj: vector representing the linear objective to be minimized
+        verbose: whether cvx should print verbose output to stdout
 
         Returns a pair representing the optimum of the psd and nsd
         components (None if that component is either infeasible or
@@ -123,7 +124,7 @@ class SDP:
         # dummy variable to code semidefinite constraint
         T = cvx.semidefinite(5,name='T')
         spec = self.A * x + self.B * y + self.C * z + self.D
-        objective = cvx.Minimize(obj[0,0]*x + obj[1,0]*y + obj[2,0]*z)
+        objective = cvx.Minimize(obj[0]*x + obj[1]*y + obj[2]*z)
         out_psd = out_nsd = None
 
         # check psd component
@@ -377,7 +378,7 @@ class SDP:
 
         """
         for i in range(n):
-            c = rand_matrix(3,1)
+            c, = rand_matrix(1,3)
             psd, nsd = self.cvx_solve(c, verbose)
             if psd is not None:
                 self.mins.append(psd)
@@ -385,6 +386,48 @@ class SDP:
                 self.mins.append(nsd)
 
         self.trials += n
+
+
+    def plot(self, ntheta=10, nphi=20, verbose=False):
+        """Generate a plot of the spectrahedron.
+
+        Sampling is done using objectives evenly spaced in spherical
+        coordinates, with ntheta and nphi controlling the number of
+        subdivisions along the respective axis.
+
+        The resulting plot is displayed interactively.  Also invokes
+        side effects of cvx_solve().
+
+        """
+        from mayavi import mlab
+
+        dphi = 2*numpy.pi/nphi
+        dtheta = numpy.pi/ntheta
+        phi,theta = numpy.mgrid[0:numpy.pi+dphi*1.5:dphi,
+                                0:2*numpy.pi+dtheta*1.5:dtheta]
+        Xp = numpy.zeros_like(theta)
+        Yp = numpy.zeros_like(theta)
+        Zp = numpy.zeros_like(theta)
+        Xn = numpy.zeros_like(theta)
+        Yn = numpy.zeros_like(theta)
+        Zn = numpy.zeros_like(theta)
+        for i in range(len(phi)):
+            for j in range(len(phi[i])):
+                obj = [numpy.cos(phi[i,j])*numpy.sin(theta[i,j]),
+                       numpy.sin(phi[i,j])*numpy.sin(theta[i,j]),
+                       numpy.cos(theta[i,j])]
+                psd, nsd = self.cvx_solve(obj, verbose)
+                if psd is not None:
+                    Xp[i,j], Yp[i,j], Zp[i,j] = psd
+                if nsd is not None:
+                    Xn[i,j], Yn[i,j], Zn[i,j] = nsd
+
+        if self.psd_spec:
+            mlab.mesh(Xp, Yp, Zp, colormap='Greys')
+        if self.nsd_spec:
+            mlab.mesh(Xn, Yn, Zn, colormap='Greys')
+        mlab.axes()
+        mlab.show()
 
 
     def get_nodes(self, handler=None):
