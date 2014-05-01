@@ -37,7 +37,7 @@ def run_sdp(filename):
             --negative 
 
             """
-            vecs = rand_matrix(5,3,integer=True)
+            vecs = rand_matrix(5,3,sigma=30,integer=True)
             signature = numpy.zeros((3,3), dtype=int)
             for i in range(len(signature)):
                 if random.random() > args.negative:
