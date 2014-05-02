@@ -347,11 +347,18 @@ class SDP:
         vecs = []
         for vec in complex_vecs:
             re, im = list(zip(*vec))
-            # see if we've found the origin
-            if max(re) < 1e-5 and max(im) < 1e-5:
-                vecs.append([0 for i in range(len(re))])
+            for i in xrange(len(re)):
+                if re[i] < 1e-10:
+                    re[i] = 0
+                if im[i] < 1e-10:
+                    im[i] = 0
+#            # see if we've found the origin
+#            if max(re) < 1e-5 and max(im) < 1e-5:
+#                vecs.append([0 for i in range(len(re))])
             # use min() to compactly express a conjunction
-            elif min([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
+#            elif min([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
+#                vecs.append(list(re))
+            if max([abs(im[i]) for i in range(len(im))]):
                 vecs.append(list(re))
             else:
                 vecs.append([complex(v[0],v[1]) for v in vec])
