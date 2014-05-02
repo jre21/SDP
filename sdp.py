@@ -347,6 +347,8 @@ class SDP:
         vecs = []
         for vec in complex_vecs:
             re, im = list(zip(*vec))
+            re = list(re)
+            im = list(im)
             for i in xrange(len(re)):
                 if re[i] < 1e-10:
                     re[i] = 0
