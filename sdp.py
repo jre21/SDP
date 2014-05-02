@@ -358,7 +358,7 @@ class SDP:
             # use min() to compactly express a conjunction
 #            elif min([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
 #                vecs.append(list(re))
-            if max([abs(im[i]) for i in range(len(im))]):
+            if max([abs(im[i]) for i in range(len(im))]) == 0:
                 vecs.append(list(re))
             else:
                 vecs.append([complex(v[0],v[1]) for v in vec])
