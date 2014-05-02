@@ -347,8 +347,11 @@ class SDP:
         vecs = []
         for vec in complex_vecs:
             re, im = list(zip(*vec))
-            # use max() to compactly express a disjunction
-            if max([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
+            # see if we've found the origin
+            if max(re) < 1e-5 and max(im) < 1e-5:
+                vecs.append([0 for i in len(re)])
+            # use min() to compactly express a conjunction
+            elif min([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
                 vecs.append(list(re))
             else:
                 vecs.append([complex(v[0],v[1]) for v in vec])
