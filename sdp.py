@@ -350,17 +350,11 @@ class SDP:
             re = list(re)
             im = list(im)
             for i in xrange(len(re)):
-                if re[i] < 1e-10:
+                if abs(re[i]) < 1e-10:
                     re[i] = 0
-                if im[i] < 1e-10:
+                if abs(im[i]) < 1e-10:
                     im[i] = 0
-#            # see if we've found the origin
-#            if max(re) < 1e-5 and max(im) < 1e-5:
-#                vecs.append([0 for i in range(len(re))])
-            # use min() to compactly express a conjunction
-#            elif min([abs(im[i]) <= 1e-5 * abs(re[i]) for i in range(len(re))]):
-#                vecs.append(list(re))
-            if max([abs(im[i]) for i in range(len(im))]) == 0:
+            if any([abs(im[i]) for i in range(len(im))]) == 0:
                 vecs.append(list(re))
             else:
                 vecs.append([complex(v[0],v[1]) for v in vec])
@@ -467,8 +461,7 @@ class SDP:
             handler = self.get_nodes_from_bertini
         for vector in handler():
             e = self.eigenvalues(vector)
-            # use min to compactly express a conjunction
-            if min([v.conjugate() == v for v in vector]):
+            if all([v.conjugate() == v for v in vector]):
                 if min([v >= 0 for v in e[:-2]]) \
                    or min([v <= 0 for v in e[:-2]]):
                     self.spec_nodes.append([vector,e])
